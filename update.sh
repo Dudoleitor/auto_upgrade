@@ -51,7 +51,7 @@ CLEANUP=1  # 0 or 1
 
 # If not defined, set the path to the configuration file
 if [ -z "$UPDATE_CONFIG_FILE" ]; then
-  UPDATE_CONFIG_FILE="../update.conf"
+  UPDATE_CONFIG_FILE="$(dirname "$0")/update.conf"
 fi
 if [ ! -f "$UPDATE_CONFIG_FILE" ]; then
   echo "Error: Configuration file not found: $UPDATE_CONFIG_FILE" >&2

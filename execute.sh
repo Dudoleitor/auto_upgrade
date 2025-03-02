@@ -2,7 +2,7 @@
 
 # If not defined, set the path to the configuration file
 if [ -z "$EXECUTE_CONFIG_FILE" ]; then
-  EXECUTE_CONFIG_FILE="../execution.conf"
+  EXECUTE_CONFIG_FILE="$(dirname "$0")/execute.conf"
 fi
 if [ ! -f "$EXECUTE_CONFIG_FILE" ]; then
   echo "Error: Configuration file not found: $EXECUTE_CONFIG_FILE"
@@ -25,5 +25,4 @@ PID=$!
 
 sleep 3.123  # Wait for the process to execute
 $UPDATE_SCRIPT $PID $OLD_LIB_NAME $NEW_LIB_FILE > /dev/null
-
-echo "Terminated"
+exit $?

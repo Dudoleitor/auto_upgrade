@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # Configuration
-NUM_TESTS=15       # Number of parallel tests to run
+NUM_TESTS=10      # Number of parallel tests to run
 MONITOR_TIME=30   # Time in seconds before checking if processes are alive
+
+EXECUTE_SCRIPT=$(dirname "$0")/execute.sh
 
 # Array to store PIDs
 declare -a PIDS
@@ -15,7 +17,7 @@ check_process() {
 
 # Function to start a process
 start_process() {
-  $1/execute.sh &
+  $EXECUTE_SCRIPT &
 
   PIDS+=($!)
   echo "Started test instance $i with PID ${PIDS[-1]}"
