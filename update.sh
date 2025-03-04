@@ -47,7 +47,7 @@ if [ $retval -ne 0 ]; then
   exit $retval
 fi
 
-CLEANUP=1  # 0 or 1
+CLEANUP=0
 
 # If not defined, set the path to the configuration file
 if [ -z "$UPDATE_CONFIG_FILE" ]; then
@@ -59,7 +59,7 @@ if [ ! -f "$UPDATE_CONFIG_FILE" ]; then
 fi
 source "$UPDATE_CONFIG_FILE"
 
-CRIU_OPTS="-j -v4 --skip-file-rwx-check"
+CRIU_OPTS="-j -v4 --skip-file-rwx-check --timeout 60"
 
 ###############################################
 
@@ -137,6 +137,7 @@ LIB_END_ADDR=0x$(cat /proc/$PID/maps | grep "$OLD_LIB_FILE" | tail -n 1 | awk '{
 # Using gdb to wait until the execution is outside the library we want to upgrade
 echo "set \$outside_lib = 0" > .gdbtmp
 echo "catch syscall" >> .gdbtmp
+echo "continue" >> .gdbtmp
 echo "while ( \$outside_lib == 0 )" >> .gdbtmp
 echo "  pipe info stack | awk '{print \$2}' | python3 $CHECK_HEX_RANGE $LIB_START_ADDR $LIB_END_ADDR" >> .gdbtmp 
 echo "  if ( \$_shell_exitcode == 0 && (\$pc < $LIB_START_ADDR || \$pc > $LIB_END_ADDR ) )" >> .gdbtmp
@@ -146,12 +147,12 @@ echo "    continue" >> .gdbtmp
 echo "  end" >> .gdbtmp
 echo "end" >> .gdbtmp
 LD_LIBRARY_PATH=$OLD_LIB_FOLDER_TO_PRELOAD:$LD_LIBRARY_PATH gdb -p $PID -batch \
--ex "p \$pc" \
+-ex "pipe p \$pc | cat > initial_pc.txt" \
 -ex "source .gdbtmp" \
 -ex "!kill -SIGSTOP $PID" \
--ex "p \$pc" \
+-ex "pipe p \$pc | cat > final_pc.txt" \
 -ex "detach" \
--ex "quit"
+-ex "quit" 2>&1
 
 # Perform the checkpoint
 sudo $CRIU dump -D checkpoint -t $PID $CRIU_OPTS -o dump.log
@@ -189,7 +190,16 @@ LD_LIBRARY_PATH=$NEW_LIB_FOLDER_TO_PRELOAD:$LD_LIBRARY_PATH gdb "$EXE_FILE" -bat
 -ex "quit"
 
 python3 $SHIFT_ADDRESSES memory_dump_1.bin memory_dump_1_translated.bin --src-gdb --src-maps synthetic_mappings.txt --dst-maps real_mappings.txt
+if [ $? -ne 0 ]; then
+  echo "Error during address translation" >&2
+  exit 1
+fi
+
 python3 $SHIFT_ADDRESSES memory_dump_2.bin memory_dump_2_translated.bin --src-gdb --src-maps synthetic_mappings.txt --dst-maps real_mappings.txt
+if [ $? -ne 0 ]; then
+  echo "Error during address translation" >&2
+  exit 1
+fi
 
 FIRST_PAGE_START=$(python3 -c "print(hex(int('$EXE_BASE_ADDR', 16) + int('$FIRST_PAGE_ELF_START', 16)))")
 SECOND_PAGE_START=$(python3 -c "print(hex(int('$LIB_BASE_ADDR', 16) + int('$SECOND_PAGE_ELF_START', 16)))")
@@ -234,4 +244,6 @@ if [ $CLEANUP -eq 1 ]; then
   rm -f synthetic_mappings.txt
   rm -f real_mappings.txt
   rm -f memory_dump_*.bin
+  rm -f initial_pc.txt
+  rm -f final_pc.txt
 fi

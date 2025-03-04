@@ -26,15 +26,16 @@ start_process() {
 # Function to cleanup processes
 cleanup() {
     echo "Cleaning up processes..."
-    for pid in "${PIDS[@]}"; do
+    for ((i=0; i<NUM_TESTS; i++)); do
+        pid=${PIDS[$i]}
         if check_process $pid; then
             kill $pid 2>/dev/null
             echo "Killed process $pid"
+            rm -rf "test_$i"
         else 
             echo "Process $pid has already terminated"
         fi
     done
-    rm -rf test_*
 }
 
 # Trap Ctrl+C and cleanup
